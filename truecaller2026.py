@@ -13,6 +13,8 @@ USERS_FILE = 'users.json'  # New: Unique users
 STATS_FILE = 'stats.json'  # New: Total searches etc.
 FREE_COOLDOWN = 1800  # 30 minutes for free users
 PREMIUM_COOLDOWN = 10  # Short for premium
+PREMIUM_LIMIT_PERIOD = 600  # 10 minutes in seconds
+PREMIUM_LIMIT_COUNT = 10  # Max successful searches in 10 min for premium
 
 ADMIN_USERNAME = 'johnseniordesk'  # @johnseniordesk
 
@@ -52,6 +54,7 @@ def save_stats():
         json.dump(stats, f)
 
 last_lookups = {}
+premium_recent_searches = {}  # user_id: list of timestamps for successful searches
 
 def send_message(chat_id, text, reply_markup=None):
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
@@ -116,10 +119,13 @@ def format_result(info, is_premium):
         return "❌ No data found for this number."
 
     result = "🔍 *Lookup Results*\n\n"
+
     # Free: Name and Address
     result += f"👤 *Name:* {info.get('name', 'N/A')}\n"
     result += f"🏠 *Address:* {info.get('address', 'N/A')}\n\n"
+
     result += "🔒 *Premium Information (Subscription Required)*\n\n"
+
     if is_premium:
         result += f"📱 *Mobile:* {info.get('mobile', info.get('number', 'N/A'))}\n"
         result += f"🌍 *Circle:* {info.get('circle', 'N/A')}\n"
@@ -127,15 +133,7 @@ def format_result(info, is_premium):
         fathers_name = info.get("fathername", info.get("father_name", 'N/A'))
         result += f"👨‍👩‍👧 *Father's Name:* {fathers_name}\n"
         result += f"🆔 *Document Number:* {info.get('idnumber', info.get('id number', 'N/A'))}\n"
-        result += f"📞 *Alternate Mobile:* {info.get('alternatemobile', info.get('alternate mobile', 'N/A'))}\n"
-        result += f"📅 *Last Call Details:* Available in Premium+ (Coming Soon)\n\n"
-       
-        socials = get_random_socials()
-        result += "🔗 *Linked Social Profiles:*\n"
-        result += f"📸 *Instagram:* {socials['Instagram']}\n"
-        result += f"📘 *Facebook:* {socials['Facebook']}\n"
-        result += f"👻 *Snapchat:* {socials['Snapchat']}\n\n"
-       
+        result += f"📞 *Alternate Mobile:* {info.get('alternatemobile', info.get('alternate mobile', 'N/A'))}\n\n"
         result += "✅ You have full premium access."
     else:
         result += "📱 *Mobile:* 🔒 Premium Required\n"
@@ -147,6 +145,7 @@ def format_result(info, is_premium):
         result += "📅 *Last Call Details:* 🔒 Premium Required (Date • Time • Duration)\n"
         result += "🔗 *Linked Social Profiles:* 🔒 Premium Required (Instagram • Facebook • Snapchat)\n\n"
         result += "💎 Upgrade to premium for complete details!"
+
     return result
 
 # Log every search to admin
@@ -222,6 +221,7 @@ while True:
                         now = time.time()
                         cooldown = PREMIUM_COOLDOWN if is_premium else FREE_COOLDOWN
 
+                        # Cooldown check
                         if user_id in last_lookups and now - last_lookups[user_id] < cooldown:
                             if is_premium:
                                 send_message(chat_id, f"⏳ Please wait {cooldown} seconds before next lookup.")
@@ -229,15 +229,28 @@ while True:
                                 send_message(chat_id, "⏳ You can only search once every 30 minutes as a free user. Subscribe to get unlimited searches.", reply_markup=premium_keyboard())
                             continue
 
+                        # For premium: Check 10 searches in 10 min
+                        if is_premium:
+                            if user_id not in premium_recent_searches:
+                                premium_recent_searches[user_id] = []
+                            # Clean old timestamps
+                            premium_recent_searches[user_id] = [t for t in premium_recent_searches[user_id] if now - t < PREMIUM_LIMIT_PERIOD]
+                            if len(premium_recent_searches[user_id]) >= PREMIUM_LIMIT_COUNT:
+                                send_message(chat_id, "Bot is in heavy load, wait few minutes and try again.")
+                                continue
+
                         send_log_to_admin(user_id, username, first_name, num, is_premium)
                         info = fetch_info(num)
                         result = format_result(info, is_premium)
 
-                        # Only apply cooldown if data was found
+                        # Apply cooldown only if data found
                         if info:
                             last_lookups[user_id] = now
-                            stats['total_searches'] += 1  # Increment total searches
+                            stats['total_searches'] += 1
                             save_stats()
+                            # For premium: Add to recent searches
+                            if is_premium:
+                                premium_recent_searches[user_id].append(now)
 
                         if is_premium:
                             send_message(chat_id, result, reply_markup=main_keyboard())

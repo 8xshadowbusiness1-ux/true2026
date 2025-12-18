@@ -11,7 +11,6 @@ API_URL = 'https://x2-proxy.vercel.app/api?num='
 SUBS_FILE = 'premium_users.json'
 LOOKUP_COOLDOWN = 10  # Seconds between lookups
 
-# Premium buy ke liye
 ADMIN_USERNAME = 'alexender_owner'  # @alexender_owner
 
 # ===================================================
@@ -27,10 +26,8 @@ def save_subs():
     with open(SUBS_FILE, 'w') as f:
         json.dump(list(subscribers), f)
 
-# Cooldown tracker
 last_lookups = {}
 
-# Send message helper
 def send_message(chat_id, text, reply_markup=None):
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
     payload = {
@@ -45,7 +42,6 @@ def send_message(chat_id, text, reply_markup=None):
     except:
         pass
 
-# Keyboards
 def main_keyboard():
     return {
         "keyboard": [
@@ -63,19 +59,20 @@ def premium_keyboard():
         ]
     }
 
-# Fetch data from API (New format ke hisaab se fixed)
+# Fetch data from API
 def fetch_info(num):
     try:
         r = requests.get(API_URL + str(num), timeout=10)
         if r.status_code == 200:
             data = r.json()
             if data.get('success') and 'result' in data and len(data['result']) > 0:
-                return data['result'][0]  # Best match
+                # Lower case keys bana lo for easy access
+                info = {k.lower(): v for k, v in data['result'][0].items()}
+                return info
     except:
         pass
     return None
 
-# Generate random social links
 def get_random_socials():
     socials = ['Instagram', 'Facebook', 'Snapchat']
     random.shuffle(socials)
@@ -89,7 +86,7 @@ def get_random_socials():
             result[social] = fake_id
     return result
 
-# Format search result
+# Format search result (lower case keys use kar rahe hain)
 def format_result(info, is_premium):
     if not info:
         return "❌ No information found or API error.\nPlease try again later."
@@ -97,19 +94,18 @@ def format_result(info, is_premium):
     result = "🔍 *Lookup Results*\n\n"
 
     # Free: Name and Address
-    result += f"👤 *Name:* {info.get('Name', 'N/A')}\n"
-    result += f"🏠 *Address:* {info.get('Address', 'N/A')}\n\n"
+    result += f"👤 *Name:* {info.get('name', 'N/A')}\n"
+    result += f"🏠 *Address:* {info.get('address', 'N/A')}\n\n"
 
     result += "🔒 *Premium Information (Subscription Required)*\n\n"
 
     if is_premium:
-        result += f"📱 *Mobile:* {info.get('Mobile', 'N/A')}\n"
-        result += f"🌍 *Circle:* {info.get('Circle', 'N/A')}\n"
-        result += f"📧 *Email:* {info.get('Email', 'N/A')}\n"
-        fathers_name = info.get("Father's Name", 'N/A')
-        result += f"👨‍👩‍👧 *Father's Name:* {fathers_name}\n"
-        result += f"🆔 *Document Number:* {info.get('ID Number', 'N/A')}\n"
-        result += f"📞 *Alternate Mobile:* {info.get('Alternate Mobile', 'N/A')}\n"
+        result += f"📱 *Mobile:* {info.get('mobile', info.get('number', 'N/A'))}\n"
+        result += f"🌍 *Circle:* {info.get('circle', 'N/A')}\n"
+        result += f"📧 *Email:* {info.get('email', 'N/A')}\n"
+        result += f"👨‍👩‍👧 *Father's Name:* {info.get('fathername', info.get('father_name', 'N/A'))}\n"
+        result += f"🆔 *Document Number:* {info.get('idnumber', info.get('id number', 'N/A'))}\n"
+        result += f"📞 *Alternate Mobile:* {info.get('alternatemobile', info.get('alternate mobile', 'N/A'))}\n"
         result += f"📅 *Last Call Details:* Available in Premium+ (Coming Soon)\n\n"
         
         socials = get_random_socials()

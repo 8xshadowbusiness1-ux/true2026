@@ -11,8 +11,8 @@ API_URL = 'https://x2-proxy.vercel.app/api?num='
 SUBS_FILE = 'premium_users.json'
 LOOKUP_COOLDOWN = 10  # Seconds between lookups
 
-# <<< IMPORTANT: Apna Telegram username daal do (bina @ ke) >>>
-ADMIN_USERNAME = 'YOUR_USERNAME_HERE'  # Example: truecalleradmin
+# Premium buy ke liye
+ADMIN_USERNAME = 'alexender_owner'  # @alexender_owner
 
 # ===================================================
 
@@ -58,24 +58,24 @@ def main_keyboard():
 def premium_keyboard():
     return {
         "inline_keyboard": [
-            [{"text": "💎 Unlock Premium Features", "url": f"t.me/{ADMIN_USERNAME}"}],
+            [{"text": "💎 Unlock Premium Features", "url": "t.me/alexender_owner"}],
             [{"text": "🔄 New Search", "callback_data": "new_search"}]
         ]
     }
 
-# Fetch data from API
+# Fetch data from API (New format ke hisaab se fixed)
 def fetch_info(num):
     try:
         r = requests.get(API_URL + str(num), timeout=10)
         if r.status_code == 200:
             data = r.json()
-            if data and len(data) > 0:
-                return data[0]
+            if data.get('success') and 'result' in data and len(data['result']) > 0:
+                return data['result'][0]  # Best match
     except:
         pass
     return None
 
-# Generate random social links (with random "Not Linked")
+# Generate random social links
 def get_random_socials():
     socials = ['Instagram', 'Facebook', 'Snapchat']
     random.shuffle(socials)
@@ -106,16 +106,12 @@ def format_result(info, is_premium):
         result += f"📱 *Mobile:* {info.get('Mobile', 'N/A')}\n"
         result += f"🌍 *Circle:* {info.get('Circle', 'N/A')}\n"
         result += f"📧 *Email:* {info.get('Email', 'N/A')}\n"
-        
-        # Fixed Father's Name line
         fathers_name = info.get("Father's Name", 'N/A')
         result += f"👨‍👩‍👧 *Father's Name:* {fathers_name}\n"
-        
         result += f"🆔 *Document Number:* {info.get('ID Number', 'N/A')}\n"
         result += f"📞 *Alternate Mobile:* {info.get('Alternate Mobile', 'N/A')}\n"
         result += f"📅 *Last Call Details:* Available in Premium+ (Coming Soon)\n\n"
         
-        # Random social links
         socials = get_random_socials()
         result += "🔗 *Linked Social Profiles:*\n"
         result += f"📸 *Instagram:* {socials['Instagram']}\n"
@@ -189,7 +185,7 @@ while True:
                         send_message(chat_id,
                             "💎 *Premium Subscription*\n\n"
                             "Unlock all premium features including email, social profiles, document number, and more.\n\n"
-                            f"Contact admin: t.me/{ADMIN_USERNAME}\n"
+                            "Contact admin: @alexender_owner\n"
                             "Complete payment and get instant access!",
                             reply_markup=premium_keyboard())
 
@@ -241,4 +237,4 @@ while True:
 
     except Exception as e:
         print("Error:", e)
-        time.sleep(5)  # Fixed: extra 'v' hata diya
+        time.sleep(5)

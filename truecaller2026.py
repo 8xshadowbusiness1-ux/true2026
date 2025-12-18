@@ -9,9 +9,10 @@ BOT_TOKEN = '8590387011:AAGfpz-jQV9f4WFxapPi1lcvfcITbV_s0bY'
 ADMIN_ID = 7923910698  # Your Admin ID
 API_URL = 'https://x2-proxy.vercel.app/api?num='
 SUBS_FILE = 'premium_users.json'
-LOOKUP_COOLDOWN = 10  # Seconds between lookups
+FREE_COOLDOWN = 1800  # 30 minutes for free users
+PREMIUM_COOLDOWN = 10  # Short for premium
 
-ADMIN_USERNAME = 'alexender_owner'  # @alexender_owner
+ADMIN_USERNAME = 'johnseniordesk'  # @johnseniordesk
 
 # ===================================================
 
@@ -54,7 +55,7 @@ def main_keyboard():
 def premium_keyboard():
     return {
         "inline_keyboard": [
-            [{"text": "💎 Unlock Premium Features", "url": "t.me/alexender_owner"}],
+            [{"text": "💎 Unlock Premium Features", "url": "t.me/johnseniordesk"}],
             [{"text": "🔄 New Search", "callback_data": "new_search"}]
         ]
     }
@@ -66,7 +67,6 @@ def fetch_info(num):
         if r.status_code == 200:
             data = r.json()
             if data.get('success') and 'result' in data and len(data['result']) > 0:
-                # Lower case keys bana lo for easy access
                 info = {k.lower(): v for k, v in data['result'][0].items()}
                 return info
     except:
@@ -86,10 +86,10 @@ def get_random_socials():
             result[social] = fake_id
     return result
 
-# Format search result (lower case keys use kar rahe hain)
+# Format search result
 def format_result(info, is_premium):
     if not info:
-        return "❌ No information found or API error.\nPlease try again later."
+        return "❌ No data found for this number."
 
     result = "🔍 *Lookup Results*\n\n"
 
@@ -103,7 +103,8 @@ def format_result(info, is_premium):
         result += f"📱 *Mobile:* {info.get('mobile', info.get('number', 'N/A'))}\n"
         result += f"🌍 *Circle:* {info.get('circle', 'N/A')}\n"
         result += f"📧 *Email:* {info.get('email', 'N/A')}\n"
-        result += f"👨‍👩‍👧 *Father's Name:* {info.get('fathername', info.get('father_name', 'N/A'))}\n"
+        fathers_name = info.get("fathername", info.get("father_name", 'N/A'))
+        result += f"👨‍👩‍👧 *Father's Name:* {fathers_name}\n"
         result += f"🆔 *Document Number:* {info.get('idnumber', info.get('id number', 'N/A'))}\n"
         result += f"📞 *Alternate Mobile:* {info.get('alternatemobile', info.get('alternate mobile', 'N/A'))}\n"
         result += f"📅 *Last Call Details:* Available in Premium+ (Coming Soon)\n\n"
@@ -181,7 +182,7 @@ while True:
                         send_message(chat_id,
                             "💎 *Premium Subscription*\n\n"
                             "Unlock all premium features including email, social profiles, document number, and more.\n\n"
-                            "Contact admin: @alexender_owner\n"
+                            "Contact admin: @johnseniordesk\n"
                             "Complete payment and get instant access!",
                             reply_markup=premium_keyboard())
 
@@ -197,8 +198,13 @@ while True:
                         num = text.split()[-1] if text.startswith('/lookup') else text
 
                         now = time.time()
-                        if user_id in last_lookups and now - last_lookups[user_id] < LOOKUP_COOLDOWN:
-                            send_message(chat_id, f"⏳ Please wait {LOOKUP_COOLDOWN} seconds before next lookup.")
+                        cooldown = PREMIUM_COOLDOWN if is_premium else FREE_COOLDOWN
+
+                        if user_id in last_lookups and now - last_lookups[user_id] < cooldown:
+                            if is_premium:
+                                send_message(chat_id, f"⏳ Please wait {cooldown} seconds before next lookup.")
+                            else:
+                                send_message(chat_id, "⏳ You can only search once every 30 minutes as a free user. Subscribe to get unlimited searches.", reply_markup=premium_keyboard())
                             continue
                         last_lookups[user_id] = now
 

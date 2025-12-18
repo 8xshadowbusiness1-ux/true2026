@@ -107,7 +107,7 @@ def format_result(info, is_premium):
         result += f"📱 *Mobile:* {info.get('Mobile', 'N/A')}\n"
         result += f"🌍 *Circle:* {info.get('Circle', 'N/A')}\n"
         result += f"📧 *Email:* {info.get('Email', 'N/A')}\n"
-        result += f"👨‍👩‍👧 *Father's Name:* {info.get('Father\\'s Name', 'N/A')}\n"
+        result += f"👨‍👩‍👧 *Father's Name:* {info.get(\"Father's Name\", 'N/A')}\n"
         result += f"🆔 *Document Number:* {info.get('ID Number', 'N/A')}\n"
         result += f"📞 *Alternate Mobile:* {info.get('Alternate Mobile', 'N/A')}\n"
         result += f"📅 *Last Call Details:* Available in Premium+ (Coming Soon)\n\n"

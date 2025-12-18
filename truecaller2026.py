@@ -9,6 +9,8 @@ BOT_TOKEN = '8590387011:AAGfpz-jQV9f4WFxapPi1lcvfcITbV_s0bY'
 ADMIN_ID = 7923910698  # Your Admin ID
 API_URL = 'https://x2-proxy.vercel.app/api?num='
 SUBS_FILE = 'premium_users.json'
+USERS_FILE = 'users.json'  # New: Unique users
+STATS_FILE = 'stats.json'  # New: Total searches etc.
 FREE_COOLDOWN = 1800  # 30 minutes for free users
 PREMIUM_COOLDOWN = 10  # Short for premium
 
@@ -23,9 +25,31 @@ try:
 except:
     subscribers = set()
 
+# Load unique users
+try:
+    with open(USERS_FILE, 'r') as f:
+        unique_users = set(json.load(f))
+except:
+    unique_users = set()
+
+# Load stats
+try:
+    with open(STATS_FILE, 'r') as f:
+        stats = json.load(f)
+except:
+    stats = {'total_searches': 0}
+
 def save_subs():
     with open(SUBS_FILE, 'w') as f:
         json.dump(list(subscribers), f)
+
+def save_users():
+    with open(USERS_FILE, 'w') as f:
+        json.dump(list(unique_users), f)
+
+def save_stats():
+    with open(STATS_FILE, 'w') as f:
+        json.dump(stats, f)
 
 last_lookups = {}
 
@@ -92,13 +116,10 @@ def format_result(info, is_premium):
         return "❌ No data found for this number."
 
     result = "🔍 *Lookup Results*\n\n"
-
     # Free: Name and Address
     result += f"👤 *Name:* {info.get('name', 'N/A')}\n"
     result += f"🏠 *Address:* {info.get('address', 'N/A')}\n\n"
-
     result += "🔒 *Premium Information (Subscription Required)*\n\n"
-
     if is_premium:
         result += f"📱 *Mobile:* {info.get('mobile', info.get('number', 'N/A'))}\n"
         result += f"🌍 *Circle:* {info.get('circle', 'N/A')}\n"
@@ -108,13 +129,13 @@ def format_result(info, is_premium):
         result += f"🆔 *Document Number:* {info.get('idnumber', info.get('id number', 'N/A'))}\n"
         result += f"📞 *Alternate Mobile:* {info.get('alternatemobile', info.get('alternate mobile', 'N/A'))}\n"
         result += f"📅 *Last Call Details:* Available in Premium+ (Coming Soon)\n\n"
-        
+       
         socials = get_random_socials()
         result += "🔗 *Linked Social Profiles:*\n"
         result += f"📸 *Instagram:* {socials['Instagram']}\n"
         result += f"📘 *Facebook:* {socials['Facebook']}\n"
         result += f"👻 *Snapchat:* {socials['Snapchat']}\n\n"
-        
+       
         result += "✅ You have full premium access."
     else:
         result += "📱 *Mobile:* 🔒 Premium Required\n"
@@ -126,7 +147,6 @@ def format_result(info, is_premium):
         result += "📅 *Last Call Details:* 🔒 Premium Required (Date • Time • Duration)\n"
         result += "🔗 *Linked Social Profiles:* 🔒 Premium Required (Instagram • Facebook • Snapchat)\n\n"
         result += "💎 Upgrade to premium for complete details!"
-
     return result
 
 # Log every search to admin
@@ -165,6 +185,8 @@ while True:
                     is_premium = user_id in subscribers
 
                     if text == '/start':
+                        unique_users.add(user_id)  # Track unique user
+                        save_users()
                         send_message(chat_id,
                             "🔥 *Truecaller 2026 - Advanced Lookup*\n\n"
                             "Get detailed mobile number information:\n"
@@ -206,11 +228,16 @@ while True:
                             else:
                                 send_message(chat_id, "⏳ You can only search once every 30 minutes as a free user. Subscribe to get unlimited searches.", reply_markup=premium_keyboard())
                             continue
-                        last_lookups[user_id] = now
 
                         send_log_to_admin(user_id, username, first_name, num, is_premium)
                         info = fetch_info(num)
                         result = format_result(info, is_premium)
+
+                        # Only apply cooldown if data was found
+                        if info:
+                            last_lookups[user_id] = now
+                            stats['total_searches'] += 1  # Increment total searches
+                            save_stats()
 
                         if is_premium:
                             send_message(chat_id, result, reply_markup=main_keyboard())
@@ -226,9 +253,46 @@ while True:
                                 send_message(chat_id, f"✅ User {sub_id} added to premium.")
                             except:
                                 send_message(chat_id, "Usage: /addsub 123456789")
+
+                        elif text.startswith('/removesub'):
+                            try:
+                                sub_id = int(text.split()[1])
+                                subscribers.discard(sub_id)
+                                save_subs()
+                                send_message(chat_id, f"✅ User {sub_id} removed from premium.")
+                            except:
+                                send_message(chat_id, "Usage: /removesub 123456789")
+
+                        elif text.startswith('/broadcast'):
+                            message = text.split(maxsplit=1)[1] if len(text.split()) > 1 else "No message"
+                            for sub in subscribers:
+                                send_message(sub, message)
+                            send_message(chat_id, f"✅ Broadcast sent to {len(subscribers)} premium users.")
+
                         elif text == '/listsubs':
                             subs_list = "\n".join([str(s) for s in subscribers]) if subscribers else "No premium users"
                             send_message(chat_id, f"💎 Premium Users:\n{subs_list}")
+
+                        elif text == '/status':
+                            total_users = len(unique_users)
+                            total_premium = len(subscribers)
+                            total_searches = stats.get('total_searches', 0)
+                            status_msg = f"📊 *Bot Status*\n\n"
+                            status_msg += f"Total Unique Users: {total_users}\n"
+                            status_msg += f"Total Premium Users: {total_premium}\n"
+                            status_msg += f"Total Searches: {total_searches}"
+                            send_message(chat_id, status_msg)
+
+                        elif text.startswith('/clearcooldown'):
+                            try:
+                                clear_id = int(text.split()[1])
+                                if clear_id in last_lookups:
+                                    del last_lookups[clear_id]
+                                    send_message(chat_id, f"✅ Cooldown cleared for user {clear_id}.")
+                                else:
+                                    send_message(chat_id, "No cooldown found for this user.")
+                            except:
+                                send_message(chat_id, "Usage: /clearcooldown 123456789")
 
                 elif 'callback_query' in update:
                     cb = update['callback_query']

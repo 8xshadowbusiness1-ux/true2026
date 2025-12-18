@@ -2,7 +2,7 @@ import requests
 import json
 import time
 from datetime import datetime
-import random  # Random ke liye add kiya for social links
+import random  # Random ke liye social links
 
 # ================== CONFIGURATION ==================
 BOT_TOKEN = '8590387011:AAGfpz-jQV9f4WFxapPi1lcvfcITbV_s0bY'
@@ -11,7 +11,7 @@ API_URL = 'https://x2-proxy.vercel.app/api?num='
 SUBS_FILE = 'premium_users.json'
 LOOKUP_COOLDOWN = 10  # Seconds between lookups
 
-# <<< IMPORTANT: Replace with your Telegram username (without @) >>>
+# <<< IMPORTANT: Apna Telegram username daal do (bina @ ke) >>>
 ADMIN_USERNAME = 'YOUR_USERNAME_HERE'  # Example: truecalleradmin
 
 # ===================================================
@@ -78,14 +78,13 @@ def fetch_info(num):
 # Generate random social links (with random "Not Linked")
 def get_random_socials():
     socials = ['Instagram', 'Facebook', 'Snapchat']
-    random.shuffle(socials)  # Random order
-    num_not_linked = random.randint(0, 2)  # 0 to 2 randomly not linked
+    random.shuffle(socials)
+    num_not_linked = random.randint(0, 2)
     result = {}
     for i, social in enumerate(socials):
         if i < num_not_linked:
             result[social] = "Not Linked"
         else:
-            # Fake linked ID
             fake_id = f"@{social.lower()}_user{random.randint(100, 999)}"
             result[social] = fake_id
     return result
@@ -97,7 +96,7 @@ def format_result(info, is_premium):
 
     result = "🔍 *Lookup Results*\n\n"
 
-    # Free fields: Name and Address always shown
+    # Free: Name and Address
     result += f"👤 *Name:* {info.get('Name', 'N/A')}\n"
     result += f"🏠 *Address:* {info.get('Address', 'N/A')}\n\n"
 
@@ -107,16 +106,22 @@ def format_result(info, is_premium):
         result += f"📱 *Mobile:* {info.get('Mobile', 'N/A')}\n"
         result += f"🌍 *Circle:* {info.get('Circle', 'N/A')}\n"
         result += f"📧 *Email:* {info.get('Email', 'N/A')}\n"
-        result += f"👨‍👩‍👧 *Father's Name:* {info.get(\"Father's Name\", 'N/A')}\n"
+        
+        # Fixed Father's Name line
+        fathers_name = info.get("Father's Name", 'N/A')
+        result += f"👨‍👩‍👧 *Father's Name:* {fathers_name}\n"
+        
         result += f"🆔 *Document Number:* {info.get('ID Number', 'N/A')}\n"
         result += f"📞 *Alternate Mobile:* {info.get('Alternate Mobile', 'N/A')}\n"
         result += f"📅 *Last Call Details:* Available in Premium+ (Coming Soon)\n\n"
-        # New clickbait socials with random "Not Linked"
+        
+        # Random social links
         socials = get_random_socials()
         result += "🔗 *Linked Social Profiles:*\n"
         result += f"📸 *Instagram:* {socials['Instagram']}\n"
         result += f"📘 *Facebook:* {socials['Facebook']}\n"
         result += f"👻 *Snapchat:* {socials['Snapchat']}\n\n"
+        
         result += "✅ You have full premium access."
     else:
         result += "📱 *Mobile:* 🔒 Premium Required\n"
@@ -144,7 +149,7 @@ def send_log_to_admin(user_id, username, first_name, num, is_premium):
 
 # Main polling loop
 offset = None
-print("Truecaller 2026 Bot is running...")
+print("Truecaller 2026 Bot is running... 🚀")
 
 while True:
     try:
@@ -157,7 +162,6 @@ while True:
             for update in updates['result']:
                 offset = update['update_id'] + 1
 
-                # Handle messages
                 if 'message' in update:
                     msg = update['message']
                     chat_id = msg['chat']['id']
@@ -200,16 +204,13 @@ while True:
                     elif text.isdigit() and len(text) == 10 or (text.startswith('/lookup') and len(text.split()) > 1):
                         num = text.split()[-1] if text.startswith('/lookup') else text
 
-                        # Cooldown check
                         now = time.time()
                         if user_id in last_lookups and now - last_lookups[user_id] < LOOKUP_COOLDOWN:
                             send_message(chat_id, f"⏳ Please wait {LOOKUP_COOLDOWN} seconds before next lookup.")
                             continue
                         last_lookups[user_id] = now
 
-                        # Log to admin
                         send_log_to_admin(user_id, username, first_name, num, is_premium)
-
                         info = fetch_info(num)
                         result = format_result(info, is_premium)
 
@@ -218,7 +219,6 @@ while True:
                         else:
                             send_message(chat_id, result, reply_markup=premium_keyboard())
 
-                    # Admin-only commands
                     elif user_id == ADMIN_ID:
                         if text.startswith('/addsub'):
                             try:
@@ -228,20 +228,17 @@ while True:
                                 send_message(chat_id, f"✅ User {sub_id} added to premium.")
                             except:
                                 send_message(chat_id, "Usage: /addsub 123456789")
-
                         elif text == '/listsubs':
                             subs_list = "\n".join([str(s) for s in subscribers]) if subscribers else "No premium users"
                             send_message(chat_id, f"💎 Premium Users:\n{subs_list}")
 
-                # Handle inline button callbacks
                 elif 'callback_query' in update:
                     cb = update['callback_query']
                     cb_data = cb['data']
                     cb_chat_id = cb['message']['chat']['id']
-
                     if cb_data == 'new_search':
                         send_message(cb_chat_id, "🔍 Enter a new mobile number:", reply_markup=main_keyboard())
 
     except Exception as e:
         print("Error:", e)
-        time.sleep(5)v
+        time.sleep(5)  # Fixed: extra 'v' hata diya

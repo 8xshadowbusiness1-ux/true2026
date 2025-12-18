@@ -15,9 +15,7 @@ FREE_COOLDOWN = 1800  # 30 minutes for free users
 PREMIUM_COOLDOWN = 10  # Short for premium
 PREMIUM_LIMIT_PERIOD = 600  # 10 minutes in seconds
 PREMIUM_LIMIT_COUNT = 10  # Max successful searches in 10 min for premium
-
 ADMIN_USERNAME = 'johnseniordesk'  # @johnseniordesk
-
 # ===================================================
 
 # Load premium users
@@ -100,42 +98,18 @@ def fetch_info(num):
         pass
     return None
 
-def get_random_socials():
-    socials = ['Instagram', 'Facebook', 'Snapchat']
-    random.shuffle(socials)
-    num_not_linked = random.randint(0, 2)
-    result = {}
-    for i, social in enumerate(socials):
-        if i < num_not_linked:
-            result[social] = "Not Linked"
-        else:
-            fake_id = f"@{social.lower()}_user{random.randint(100, 999)}"
-            result[social] = fake_id
-    return result
-
 # Format search result
 def format_result(info, is_premium):
     if not info:
         return "❌ No data found for this number."
 
     result = "🔍 *Lookup Results*\n\n"
-
     # Free: Name and Address
     result += f"👤 *Name:* {info.get('name', 'N/A')}\n"
     result += f"🏠 *Address:* {info.get('address', 'N/A')}\n\n"
 
-    result += "🔒 *Premium Information (Subscription Required)*\n\n"
-
-    if is_premium:
-        result += f"📱 *Mobile:* {info.get('mobile', info.get('number', 'N/A'))}\n"
-        result += f"🌍 *Circle:* {info.get('circle', 'N/A')}\n"
-        result += f"📧 *Email:* {info.get('email', 'N/A')}\n"
-        fathers_name = info.get("fathername", info.get("father_name", 'N/A'))
-        result += f"👨‍👩‍👧 *Father's Name:* {fathers_name}\n"
-        result += f"🆔 *Document Number:* {info.get('idnumber', info.get('id number', 'N/A'))}\n"
-        result += f"📞 *Alternate Mobile:* {info.get('alternatemobile', info.get('alternate mobile', 'N/A'))}\n\n"
-        result += "✅ You have full premium access."
-    else:
+    if not is_premium:
+        result += "🔒 *Premium Information (Subscription Required)*\n\n"
         result += "📱 *Mobile:* 🔒 Premium Required\n"
         result += "🌍 *Circle:* 🔒 Premium Required\n"
         result += "📧 *Email:* 🔒 Premium Required\n"
@@ -145,7 +119,30 @@ def format_result(info, is_premium):
         result += "📅 *Last Call Details:* 🔒 Premium Required (Date • Time • Duration)\n"
         result += "🔗 *Linked Social Profiles:* 🔒 Premium Required (Instagram • Facebook • Snapchat)\n\n"
         result += "💎 Upgrade to premium for complete details!"
+        return result
 
+    # Premium user: Show all available data
+    result += "✅ *Full Premium Details Unlocked*\n\n"
+
+    mobile = info.get('mobile', info.get('number', 'N/A'))
+    result += f"📱 *Mobile:* {mobile}\n"
+    result += f"🌍 *Circle:* {info.get('circle', 'N/A')}\n"
+    result += f"📧 *Email:* {info.get('email', 'N/A')}\n"
+
+    fathers_name = info.get('fathername', info.get('father_name', 'N/A'))
+    result += f"👨‍👩‍👧 *Father's Name:* {fathers_name}\n"
+
+    doc_num = info.get('idnumber', info.get('id number', 'N/A'))
+    result += f"🆔 *Document Number:* {doc_num}\n"
+
+    # Fixed: Properly fetch alternate mobile if available
+    alt_mobile = info.get('alternatemobile', info.get('alternate mobile', 'N/A'))
+    if alt_mobile == 'N/A':
+        result += "📞 *Alternate Mobile:* Not Available\n"
+    else:
+        result += f"📞 *Alternate Mobile:* {alt_mobile}\n"
+
+    result += "\n✅ You have full premium access."
     return result
 
 # Log every search to admin
@@ -162,18 +159,15 @@ def send_log_to_admin(user_id, username, first_name, num, is_premium):
 # Main polling loop
 offset = None
 print("Truecaller 2026 Bot is running... 🚀")
-
 while True:
     try:
         updates = requests.get(
             f'https://api.telegram.org/bot{BOT_TOKEN}/getUpdates',
             params={'offset': offset, 'timeout': 30}
         ).json()
-
         if 'result' in updates:
             for update in updates['result']:
                 offset = update['update_id'] + 1
-
                 if 'message' in update:
                     msg = update['message']
                     chat_id = msg['chat']['id']
@@ -217,7 +211,6 @@ while True:
 
                     elif text.isdigit() and len(text) == 10 or (text.startswith('/lookup') and len(text.split()) > 1):
                         num = text.split()[-1] if text.startswith('/lookup') else text
-
                         now = time.time()
                         cooldown = PREMIUM_COOLDOWN if is_premium else FREE_COOLDOWN
 
@@ -229,7 +222,7 @@ while True:
                                 send_message(chat_id, "⏳ You can only search once every 30 minutes as a free user. Subscribe to get unlimited searches.", reply_markup=premium_keyboard())
                             continue
 
-                        # For premium: Check 10 searches in 10 min
+                        # For premium: Check rate limit
                         if is_premium:
                             if user_id not in premium_recent_searches:
                                 premium_recent_searches[user_id] = []
